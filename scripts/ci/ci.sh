@@ -288,7 +288,7 @@ start_redis_cache() {
   docker logs "$container"
 
   export DOCKER_NETWORK="$network"
-  export CCACHE_REMOTE_STORAGE="redis://redis-cache @connect-timeout=5s @operation-timeout=5s"
+  export CCACHE_REMOTE_STORAGE="redis://redis-cache|connect-timeout=5000|operation-timeout=5000"
   export CCACHE_RESHARE="${CCACHE_RESHARE:-true}"
 }
 
