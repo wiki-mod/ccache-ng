@@ -20,6 +20,7 @@ General information
 * [Release notes](https://ccache.dev/releasenotes.html)
 * [Credits and history](https://ccache.dev/credits.html)
 * [License and copyright](https://ccache.dev/license.html)
+* [Nightly builds](doc/NightlyBuilds.md)
 
 
 Contributing to ccache
