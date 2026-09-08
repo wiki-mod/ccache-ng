@@ -27,6 +27,7 @@ launcher="${LAUNCHER:-}"
 command="${COMMAND:-/source/ci/build}"
 interactive="${INTERACTIVE:+--interactive --tty}"
 nocache="${NOCACHE:+--no-cache}"
+network="${DOCKER_NETWORK:+--network ${DOCKER_NETWORK}}"
 
 # Build (if not exists):
 docker build -t "$tag" ${nocache} "${top_dir}/dockerfiles/$name"
@@ -38,6 +39,7 @@ mkdir -p "${top_dir}/build-in-docker/docker-ccache"
 docker run \
     --init \
     --rm \
+    ${network} \
     --volume "${top_dir}:/source" \
     --volume "${top_dir}/build-in-docker/docker-ccache:/ccache" \
     --tmpfs /builddir:rw,exec \
@@ -48,6 +50,9 @@ docker run \
     --env CC="${CC:-}" \
     --env CCACHE_DIR=/ccache \
     --env CCACHE_LOC="/source" \
+    --env CCACHE_REMOTE_ONLY="${CCACHE_REMOTE_ONLY:-}" \
+    --env CCACHE_REMOTE_STORAGE="${CCACHE_REMOTE_STORAGE:-}" \
+    --env CCACHE_RESHARE="${CCACHE_RESHARE:-}" \
     --env CFLAGS="${CFLAGS:-}" \
     --env CMAKE_PARAMS="${CMAKE_PARAMS:-}" \
     --env CXX="${CXX:-}" \

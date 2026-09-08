@@ -73,6 +73,18 @@ runtime_image_name() {
   image_name
 }
 
+redis_cache_image_name() {
+  printf '%s-redis-cache:local\n' "$PROJECT_NAME"
+}
+
+redis_cache_network_name() {
+  printf '%s-redis-%s-%s\n' "$PROJECT_NAME" "$(native_arch)" "${GITHUB_RUN_ID:-local}"
+}
+
+redis_cache_container_name() {
+  printf '%s-redis-cache-%s-%s\n' "$PROJECT_NAME" "$(native_arch)" "${GITHUB_RUN_ID:-local}"
+}
+
 selected_arches() {
   case "$REQUESTED_ARCH" in
     all) printf '%s\n' amd64 arm64 ;;
@@ -248,6 +260,47 @@ build_arch_dir() {
   printf '%s/build/nightly-%s\n' "$ROOT_DIR" "$1"
 }
 
+start_redis_cache() {
+  require_cmd docker
+  local image network container
+  image="$(redis_cache_image_name)"
+  network="$(redis_cache_network_name)"
+  container="$(redis_cache_container_name)"
+
+  docker network create "$network" >/dev/null 2>&1 || true
+  docker build -t "$image" "$ROOT_DIR/dockerfiles/redis-cache" >/dev/null
+  docker run -d \
+    --name "$container" \
+    --network "$network" \
+    --network-alias redis-cache \
+    "$image" >/dev/null
+
+  for _ in $(seq 1 60); do
+    if docker exec "$container" redis-cli ping >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+
+  docker exec "$container" redis-cli ping >/dev/null 2>&1 \
+    || die "redis cache container did not become ready"
+
+  docker logs "$container"
+
+  export DOCKER_NETWORK="$network"
+  export CCACHE_REMOTE_STORAGE="redis://redis-cache @connect-timeout=5s @operation-timeout=5s"
+  export CCACHE_REMOTE_ONLY="${CCACHE_REMOTE_ONLY:-false}"
+  export CCACHE_RESHARE="${CCACHE_RESHARE:-true}"
+}
+
+stop_redis_cache() {
+  local network container
+  network="$(redis_cache_network_name)"
+  container="$(redis_cache_container_name)"
+  docker rm -f "$container" >/dev/null 2>&1 || true
+  docker network rm "$network" >/dev/null 2>&1 || true
+}
+
 build_binary() {
   local arch build_dir
   arch="$(native_arch)"
@@ -384,6 +437,8 @@ build() {
   require_cmd git
   require_cmd docker
   ensure_dirs
+  start_redis_cache
+  trap 'stop_redis_cache' EXIT INT TERM
   build_binary
   build_release_docs
   package_binary_release
@@ -394,12 +449,18 @@ build() {
   if [ "$PUBLISH" = "true" ]; then
     build_runtime_image
   fi
+  stop_redis_cache
+  trap - EXIT INT TERM
 }
 
 verify() {
   require_cmd docker
   ensure_dirs
+  start_redis_cache
+  trap 'stop_redis_cache' EXIT INT TERM
   build_binary
+  stop_redis_cache
+  trap - EXIT INT TERM
   log "verify=ok"
 }
 
