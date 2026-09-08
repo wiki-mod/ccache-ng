@@ -1,0 +1,227 @@
+name: build_ccache
+
+on:
+  schedule:
+    - cron: "17 1 * * *"
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        required: true
+        default: nightly
+        options:
+          - nightly
+          - release
+          - verify
+          - gc
+      force:
+        type: boolean
+        required: true
+        default: false
+      publish:
+        type: boolean
+        required: true
+        default: true
+      arch:
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - amd64
+          - arm64
+      cleanup:
+        type: boolean
+        required: true
+        default: true
+      debug:
+        type: boolean
+        required: true
+        default: false
+      release_tag:
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+  attestations: write
+  id-token: write
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.mode != 'gc' }}
+    outputs:
+      decision: ${{ steps.admission.outputs.decision }}
+      source_sha: ${{ steps.admission.outputs.source_sha }}
+      source_version: ${{ steps.admission.outputs.source_version }}
+      image: ${{ steps.admission.outputs.image }}
+      release_name: ${{ steps.admission.outputs.release_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: admission
+        run: bash ./scripts/ci/ci.sh admission
+        env:
+          PROJECT_AUTOMATION_PAT: ${{ secrets.PROJECT_AUTOMATION_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: admission
+          FORCE: ${{ inputs.force || 'false' }}
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.publish && 'true' || 'false') }}
+          REQUESTED_MODE: ${{ github.event_name == 'push' && 'release' || inputs.mode || 'nightly' }}
+          REQUESTED_ARCH: ${{ inputs.arch || 'all' }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag || '' }}
+          DEBUG: ${{ inputs.debug || 'false' }}
+
+  build:
+    name: build ${{ matrix.arch }}
+    needs: plan
+    if: ${{ needs.plan.outputs.decision == 'build' && (github.event_name != 'workflow_dispatch' || (inputs.mode != 'verify' && inputs.mode != 'gc')) }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: build-in-docker/docker-ccache
+          key: ccache-ng-${{ matrix.arch }}-${{ hashFiles('CMakeLists.txt', 'cmake/**/*.cmake', 'ci/**', 'misc/**', 'src/**', 'test/**', 'doc/**', 'dockerfiles/debian-13/Dockerfile') }}
+          restore-keys: |
+            ccache-ng-${{ matrix.arch }}-
+      - run: bash ./scripts/ci/ci.sh build
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.arch == 'all' || inputs.arch == matrix.arch }}
+        env:
+          PROJECT_AUTOMATION_PAT: ${{ secrets.PROJECT_AUTOMATION_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: build
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.publish && 'true' || 'false') }}
+          REQUESTED_MODE: ${{ github.event_name == 'push' && 'release' || inputs.mode || 'nightly' }}
+          REQUESTED_ARCH: ${{ inputs.arch || 'all' }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag || '' }}
+          DEBUG: ${{ inputs.debug || 'false' }}
+      - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.arch == 'all' || inputs.arch == matrix.arch }}
+        with:
+          name: outputs-${{ matrix.arch }}
+          path: dist/ccache-ng
+          if-no-files-found: error
+          retention-days: 14
+
+  verify:
+    name: verify
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'verify' }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: build-in-docker/docker-ccache
+          key: ccache-ng-verify-${{ matrix.arch }}-${{ hashFiles('CMakeLists.txt', 'cmake/**/*.cmake', 'ci/**', 'misc/**', 'src/**', 'test/**', 'doc/**', 'dockerfiles/debian-13/Dockerfile') }}
+          restore-keys: |
+            ccache-ng-verify-${{ matrix.arch }}-
+      - run: bash ./scripts/ci/ci.sh verify
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.arch == 'all' || inputs.arch == matrix.arch }}
+        env:
+          MODE: verify
+          REQUESTED_MODE: verify
+          REQUESTED_ARCH: ${{ inputs.arch || 'all' }}
+          DEBUG: ${{ inputs.debug || 'false' }}
+
+  promote:
+    name: promote
+    needs: [plan, build]
+    if: ${{ needs.plan.outputs.decision == 'build' && (github.event_name != 'workflow_dispatch' || (inputs.mode != 'verify' && inputs.mode != 'gc')) && (github.event_name != 'workflow_dispatch' || inputs.publish) && (github.event_name != 'workflow_dispatch' || inputs.arch == 'all') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: outputs-*
+          path: dist/ccache-ng
+          merge-multiple: true
+      - run: bash ./scripts/ci/ci.sh promote
+        env:
+          PROJECT_AUTOMATION_PAT: ${{ secrets.PROJECT_AUTOMATION_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: promote
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.publish && 'true' || 'false') }}
+          REQUESTED_MODE: ${{ github.event_name == 'push' && 'release' || inputs.mode || 'nightly' }}
+          REQUESTED_ARCH: ${{ inputs.arch || 'all' }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag || '' }}
+          DEBUG: ${{ inputs.debug || 'false' }}
+      - run: bash ./scripts/ci/ci.sh publish-release
+        env:
+          PROJECT_AUTOMATION_PAT: ${{ secrets.PROJECT_AUTOMATION_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: publish-release
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.publish && 'true' || 'false') }}
+          REQUESTED_MODE: ${{ github.event_name == 'push' && 'release' || inputs.mode || 'nightly' }}
+          REQUESTED_ARCH: ${{ inputs.arch || 'all' }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag || '' }}
+          DEBUG: ${{ inputs.debug || 'false' }}
+      - run: bash ./scripts/ci/ci.sh close-failure
+        env:
+          PROJECT_AUTOMATION_PAT: ${{ secrets.PROJECT_AUTOMATION_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: close-failure
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.publish && 'true' || 'false') }}
+          DEBUG: ${{ inputs.debug || 'false' }}
+      - run: bash ./scripts/ci/ci.sh gc
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.cleanup }}
+        env:
+          PROJECT_AUTOMATION_PAT: ${{ secrets.PROJECT_AUTOMATION_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: gc
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.publish && 'true' || 'false') }}
+          CLEANUP: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.cleanup && 'true' || 'false') }}
+          DEBUG: ${{ inputs.debug || 'false' }}
+
+  gc:
+    name: gc
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'gc' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash ./scripts/ci/ci.sh gc
+        env:
+          PROJECT_AUTOMATION_PAT: ${{ secrets.PROJECT_AUTOMATION_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: gc
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.publish && 'true' || 'false') }}
+          CLEANUP: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.cleanup && 'true' || 'false') }}
+          DEBUG: ${{ inputs.debug || 'false' }}
+
+  report-failure:
+    name: report failure
+    needs: [plan, build, verify, promote, gc]
+    if: ${{ failure() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash ./scripts/ci/ci.sh report-failure
+        env:
+          PROJECT_AUTOMATION_PAT: ${{ secrets.PROJECT_AUTOMATION_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: report-failure
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.publish && 'true' || 'false') }}
+          DEBUG: ${{ inputs.debug || 'false' }}
