@@ -3,5 +3,6 @@
 set -eux
 
 dir=build
+: ${JOBS:=$(($(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2) * 2))}
 cmake -B "${dir}"
-DESTDIR=$(pwd)/install ninja -C "${dir}" doc/install
+DESTDIR=$(pwd)/install ninja -j "${JOBS}" -C "${dir}" doc/install

@@ -53,6 +53,7 @@ docker run \
     --env CXX="${CXX:-}" \
     --env CXXFLAGS="${CXXFLAGS:-}" \
     --env LDFLAGS="${LDFLAGS:-}" \
+    --env JOBS="${JOBS:-}" \
     --env NO_TEST="${NO_TEST:-}" \
     --env SCAN_BUILD="${SCAN_BUILD:-}" \
     --env SPECIAL="${SPECIAL:-}" \

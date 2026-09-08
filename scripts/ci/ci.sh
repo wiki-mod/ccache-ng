@@ -257,12 +257,19 @@ build_binary() {
   mkdir -p "$WORK_DIR/build-cache"
   BUILDDIR="/source/build/nightly-${arch}" \
   CMAKE_PARAMS="-D DEPS=DOWNLOAD" \
-  JOBS="$(nproc)" \
+  JOBS="$(( $(nproc) * 2 ))" \
   bash "$ROOT_DIR/misc/build-in-docker" "$BUILD_DOCKERFILE"
   [ -x "$build_dir/ccache" ] || die "missing built binary: $build_dir/ccache"
   mkdir -p "$BIN_DIR/$arch"
   cp "$build_dir/ccache" "$BIN_DIR/$arch/ccache"
   chmod 0755 "$BIN_DIR/$arch/ccache"
+}
+
+build_release_docs() {
+  rm -rf "$ROOT_DIR/doc/build" "$ROOT_DIR/doc/install"
+  (cd "$ROOT_DIR/doc" && ../ci/build-docs)
+  [ -d "$ROOT_DIR/doc/install/usr/local/share/doc/ccache" ] || die "missing release docs: $ROOT_DIR/doc/install/usr/local/share/doc/ccache"
+  [ -f "$ROOT_DIR/doc/install/usr/local/share/man/man1/ccache.1" ] || die "missing release manpage: $ROOT_DIR/doc/install/usr/local/share/man/man1/ccache.1"
 }
 
 package_binary_release() {
@@ -376,6 +383,7 @@ build() {
   require_cmd docker
   ensure_dirs
   build_binary
+  build_release_docs
   package_binary_release
   prepare_source_release
   write_metadata

@@ -10,7 +10,7 @@ set -eu
 : ${CMAKE_PARAMS:=}
 : ${CMAKE_PREFIX:=}
 : ${EXTRA_CMAKE_BUILD_FLAGS:=}
-: ${JOBS:=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}
+: ${JOBS:=$(($(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2) * 2))}
 : ${SPECIAL:=}
 : ${TEST_CC:=${CC:-}}
 : ${VERBOSE:=}

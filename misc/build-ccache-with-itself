@@ -11,7 +11,7 @@ set -eu
 : ${CCACHE_LOC:=..}
 : ${CMAKE_PARAMS:=}
 : ${EXTRA_CMAKE_BUILD_FLAGS:=}
-: ${JOBS:=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}
+: ${JOBS:=$(($(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2) * 2))}
 : ${VERBOSE:=}
 
 if [ -n "${VERBOSE}" ]; then
