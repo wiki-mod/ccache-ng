@@ -5,4 +5,4 @@ set -eux
 dir=build
 : ${JOBS:=$(($(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2) * 2))}
 cmake -B "${dir}"
-cmake --build "${dir}" --parallel "${JOBS}" --target doc/install
+DESTDIR=$(pwd)/install cmake --build "${dir}" --parallel "${JOBS}" --target doc/install

@@ -266,12 +266,12 @@ build_binary() {
 }
 
 build_release_docs() {
-  rm -rf "$ROOT_DIR/doc/build" "$ROOT_DIR/doc/install"
+  rm -rf "$ROOT_DIR/build" "$ROOT_DIR/install"
   COMMAND=/source/ci/build-docs \
-  LAUNCHER="cd /source/doc &&" \
+  LAUNCHER="cd /source &&" \
   bash "$ROOT_DIR/misc/build-in-docker" "$BUILD_DOCKERFILE"
-  [ -d "$ROOT_DIR/doc/install/usr/local/share/doc/ccache" ] || die "missing release docs: $ROOT_DIR/doc/install/usr/local/share/doc/ccache"
-  [ -f "$ROOT_DIR/doc/install/usr/local/share/man/man1/ccache.1" ] || die "missing release manpage: $ROOT_DIR/doc/install/usr/local/share/man/man1/ccache.1"
+  [ -d "$ROOT_DIR/install/usr/local/share/doc/ccache" ] || die "missing release docs: $ROOT_DIR/install/usr/local/share/doc/ccache"
+  [ -f "$ROOT_DIR/install/usr/local/share/man/man1/ccache.1" ] || die "missing release manpage: $ROOT_DIR/install/usr/local/share/man/man1/ccache.1"
 }
 
 package_binary_release() {
@@ -286,8 +286,8 @@ package_binary_release() {
   cp "$ROOT_DIR"/misc/install.sh "$ROOT_DIR"/misc/Makefile.posix-binary-release \
     "$ROOT_DIR"/misc/patch-binary.py "$ROOT_DIR"/GPL-3.0.txt "$ROOT_DIR"/README.md \
     "$root/"
-  cp -a "$ROOT_DIR/doc/install/usr/local/share/doc/ccache/." "$root/"
-  cp "$ROOT_DIR/doc/install/usr/local/share/man/man1/ccache.1" "$root/"
+  cp -a "$ROOT_DIR/install/usr/local/share/doc/ccache/." "$root/"
+  cp "$ROOT_DIR/install/usr/local/share/man/man1/ccache.1" "$root/"
   tar -C "$WORK_DIR" -czf "$RELEASE_DIR/${name}.tar.gz" "$name"
   tar -C "$WORK_DIR" -cJf "$RELEASE_DIR/${name}.tar.xz" "$name"
 }
