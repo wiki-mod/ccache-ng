@@ -54,6 +54,7 @@ docker run \
     --env CC="${CC:-}" \
     --env CCACHE_DIR=/ccache \
     --env CCACHE_LOC="/source" \
+    --env INSTALLDIR="${INSTALLDIR:-}" \
     --env CCACHE_REMOTE_ONLY="${CCACHE_REMOTE_ONLY:-}" \
     --env CCACHE_REMOTE_STORAGE="${CCACHE_REMOTE_STORAGE:-}" \
     --env CCACHE_RESHARE="${CCACHE_RESHARE:-}" \

@@ -13,9 +13,13 @@ RUN apt-get update \
         ccache \
         clang \
         cmake \
+        doctest-dev \
         elfutils \
+        libexpected-dev \
+        libfmt-dev \
         gcc \
         libhiredis-dev \
+        libxxhash-dev \
         libzstd-dev \
         pandoc \
         python3 \

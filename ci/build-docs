@@ -6,4 +6,5 @@ dir="${BUILDDIR:-build}"
 install_dir="${INSTALLDIR:-$(pwd)/install}"
 : ${JOBS:=$(($(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2) * 2))}
 cmake -S . -B "${dir}"
-DESTDIR="${install_dir}" cmake --build "${dir}" --parallel "${JOBS}" --target doc/install
+cmake --build "${dir}" --parallel "${JOBS}" --target doc
+cmake --install "${dir}" --prefix "${install_dir}"
