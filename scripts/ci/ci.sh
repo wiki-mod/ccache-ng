@@ -380,6 +380,7 @@ LABEL org.opencontainers.image.version="$(source_version)"
 LABEL org.opencontainers.image.created="$(date -u +%FT%TZ)"
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates libhiredis-dev libzstd-dev \
+ && apt-get dist-upgrade -y \
  && rm -rf /var/lib/apt/lists/*
 COPY ccache /usr/local/bin/ccache
 ENTRYPOINT ["ccache"]
