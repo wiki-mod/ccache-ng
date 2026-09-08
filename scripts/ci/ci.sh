@@ -448,6 +448,9 @@ publish_release() {
 }
 
 failure_issue_number() {
+  if [ "$(gh repo view "$(gh_repo)" --json hasIssues --jq '.hasIssues' || printf 'false')" != "true" ]; then
+    return 0
+  fi
   gh issue list \
     --repo "$(gh_repo)" \
     --label "$FAILURE_LABEL_NIGHTLY" \
@@ -473,10 +476,20 @@ report_failure() {
   gh label create "$FAILURE_LABEL_NIGHTLY" --repo "$(gh_repo)" --force >/dev/null 2>&1 || true
   gh label create "$FAILURE_LABEL_CI" --repo "$(gh_repo)" --force >/dev/null 2>&1 || true
   number="$(failure_issue_number || true)"
+  if [ "$(gh repo view "$(gh_repo)" --json hasIssues --jq '.hasIssues' || printf 'false')" != "true" ]; then
+    log "issue tracking is disabled; skipping failure issue creation"
+    return 0
+  fi
   if [ -n "$number" ]; then
-    gh issue comment "$number" --repo "$(gh_repo)" --body-file "$body" >/dev/null
+    gh issue comment "$number" --repo "$(gh_repo)" --body-file "$body" >/dev/null || {
+      log "failed to update failure issue; continuing"
+      return 0
+    }
   else
-    gh issue create --repo "$(gh_repo)" --title "$title" --body-file "$body" --label "$FAILURE_LABEL_NIGHTLY,$FAILURE_LABEL_CI" >/dev/null
+    gh issue create --repo "$(gh_repo)" --title "$title" --body-file "$body" --label "$FAILURE_LABEL_NIGHTLY,$FAILURE_LABEL_CI" >/dev/null || {
+      log "failed to create failure issue; continuing"
+      return 0
+    }
   fi
 }
 
