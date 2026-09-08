@@ -39,6 +39,7 @@ mkdir -p "${top_dir}/build-in-docker/docker-ccache"
 docker run \
     --init \
     --rm \
+    --user "$(id -u):$(id -g)" \
     ${network} \
     --volume "${top_dir}:/source" \
     --volume "${top_dir}/build-in-docker/docker-ccache:/ccache" \
