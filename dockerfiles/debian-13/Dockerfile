@@ -6,6 +6,7 @@ RUN apt-get update \
         bash \
         build-essential \
         ca-certificates \
+        asciidoctor \
         ccache \
         clang \
         cmake \
@@ -13,6 +14,7 @@ RUN apt-get update \
         gcc \
         libhiredis-dev \
         libzstd-dev \
+        pandoc \
         python3 \
         redis-server \
         redis-tools \

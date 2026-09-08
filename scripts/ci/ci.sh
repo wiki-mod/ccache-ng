@@ -267,7 +267,9 @@ build_binary() {
 
 build_release_docs() {
   rm -rf "$ROOT_DIR/doc/build" "$ROOT_DIR/doc/install"
-  (cd "$ROOT_DIR/doc" && ../ci/build-docs)
+  COMMAND=/source/ci/build-docs \
+  LAUNCHER="cd /source/doc &&" \
+  bash "$ROOT_DIR/misc/build-in-docker" "$BUILD_DOCKERFILE"
   [ -d "$ROOT_DIR/doc/install/usr/local/share/doc/ccache" ] || die "missing release docs: $ROOT_DIR/doc/install/usr/local/share/doc/ccache"
   [ -f "$ROOT_DIR/doc/install/usr/local/share/man/man1/ccache.1" ] || die "missing release manpage: $ROOT_DIR/doc/install/usr/local/share/man/man1/ccache.1"
 }
