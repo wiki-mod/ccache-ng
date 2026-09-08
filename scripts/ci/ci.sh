@@ -257,7 +257,7 @@ platform_for_arch() {
 }
 
 build_arch_dir() {
-  printf '%s/build/nightly-%s\n' "$ROOT_DIR" "$1"
+  printf '%s/build/nightly-%s\n' "$WORK_DIR" "$1"
 }
 
 start_redis_cache() {
@@ -307,7 +307,10 @@ build_binary() {
   build_dir="$(build_arch_dir "$arch")"
   rm -rf "$build_dir"
   mkdir -p "$WORK_DIR/build-cache"
-  BUILDDIR="/source/build/nightly-${arch}" \
+  mkdir -p "$WORK_DIR/build"
+  mkdir -p "$WORK_DIR/install"
+  WORK_DIR="$WORK_DIR" \
+  BUILDDIR="/work/build/nightly-${arch}" \
   CMAKE_PARAMS="-D DEPS=DOWNLOAD" \
   JOBS="$(( $(nproc) * 2 ))" \
   bash "$ROOT_DIR/misc/build-in-docker" "$BUILD_DOCKERFILE"
@@ -318,12 +321,16 @@ build_binary() {
 }
 
 build_release_docs() {
-  rm -rf "$ROOT_DIR/build" "$ROOT_DIR/install"
+  rm -rf "$WORK_DIR/build-docs" "$WORK_DIR/install"
+  mkdir -p "$WORK_DIR/build-docs" "$WORK_DIR/install"
+  WORK_DIR="$WORK_DIR" \
+  BUILDDIR="/work/build-docs" \
+  INSTALLDIR="/work/install" \
   COMMAND=/source/ci/build-docs \
   LAUNCHER="cd /source &&" \
   bash "$ROOT_DIR/misc/build-in-docker" "$BUILD_DOCKERFILE"
-  [ -d "$ROOT_DIR/install/usr/local/share/doc/ccache" ] || die "missing release docs: $ROOT_DIR/install/usr/local/share/doc/ccache"
-  [ -f "$ROOT_DIR/install/usr/local/share/man/man1/ccache.1" ] || die "missing release manpage: $ROOT_DIR/install/usr/local/share/man/man1/ccache.1"
+  [ -d "$WORK_DIR/install/usr/local/share/doc/ccache" ] || die "missing release docs: $WORK_DIR/install/usr/local/share/doc/ccache"
+  [ -f "$WORK_DIR/install/usr/local/share/man/man1/ccache.1" ] || die "missing release manpage: $WORK_DIR/install/usr/local/share/man/man1/ccache.1"
 }
 
 package_binary_release() {
@@ -338,8 +345,8 @@ package_binary_release() {
   cp "$ROOT_DIR"/misc/install.sh "$ROOT_DIR"/misc/Makefile.posix-binary-release \
     "$ROOT_DIR"/misc/patch-binary.py "$ROOT_DIR"/GPL-3.0.txt "$ROOT_DIR"/README.md \
     "$root/"
-  cp -a "$ROOT_DIR/install/usr/local/share/doc/ccache/." "$root/"
-  cp "$ROOT_DIR/install/usr/local/share/man/man1/ccache.1" "$root/"
+  cp -a "$WORK_DIR/install/usr/local/share/doc/ccache/." "$root/"
+  cp "$WORK_DIR/install/usr/local/share/man/man1/ccache.1" "$root/"
   tar -C "$WORK_DIR" -czf "$RELEASE_DIR/${name}.tar.gz" "$name"
   tar -C "$WORK_DIR" -cJf "$RELEASE_DIR/${name}.tar.xz" "$name"
 }

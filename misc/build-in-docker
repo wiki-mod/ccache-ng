@@ -28,6 +28,7 @@ command="${COMMAND:-/source/ci/build}"
 interactive="${INTERACTIVE:+--interactive --tty}"
 nocache="${NOCACHE:+--no-cache}"
 network="${DOCKER_NETWORK:+--network ${DOCKER_NETWORK}}"
+work_dir="${WORK_DIR:-${top_dir}/build-in-docker/work}"
 
 # Build (if not exists):
 docker build -t "$tag" ${nocache} "${top_dir}/dockerfiles/$name"
@@ -35,6 +36,7 @@ docker build -t "$tag" ${nocache} "${top_dir}/dockerfiles/$name"
 # Cache compilation across docker sessions
 mkdir -p "${top_dir}/build-in-docker"
 mkdir -p "${top_dir}/build-in-docker/docker-ccache"
+mkdir -p "${work_dir}"
 
 docker run \
     --init \
@@ -42,6 +44,7 @@ docker run \
     --user "$(id -u):$(id -g)" \
     ${network} \
     --volume "${top_dir}:/source" \
+    --volume "${work_dir}:/work" \
     --volume "${top_dir}/build-in-docker/docker-ccache:/ccache" \
     --tmpfs /builddir:rw,exec \
     --workdir /builddir \
