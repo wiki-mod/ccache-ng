@@ -24,6 +24,7 @@ if [ -n "${SPECIAL}" ]; then
 else
     mkdir -p "${BUILDDIR}"
     cd "${BUILDDIR}"
+    cmake --version
     ${CMAKE_PREFIX} cmake ${CMAKE_PARAMS} ${CCACHE_LOC}
 
     case "${CMAKE_GENERATOR:-}" in

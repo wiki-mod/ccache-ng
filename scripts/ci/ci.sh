@@ -289,7 +289,6 @@ start_redis_cache() {
 
   export DOCKER_NETWORK="$network"
   export CCACHE_REMOTE_STORAGE="redis://redis-cache @connect-timeout=5s @operation-timeout=5s"
-  export CCACHE_REMOTE_ONLY="${CCACHE_REMOTE_ONLY:-false}"
   export CCACHE_RESHARE="${CCACHE_RESHARE:-true}"
 }
 
